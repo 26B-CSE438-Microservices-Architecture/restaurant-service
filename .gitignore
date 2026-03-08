@@ -1,0 +1,36 @@
+.vs/
+.vscode/
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+packages/
+*.nupkg
+TestResults/
+.sonarqube/
+
+# Docker
+.dockerignore
+*.docker-compose.vs.debug.g.yml
+*.docker-compose.vs.release.g.yml
+
+# Environment
+.env
+.env.*
+!**/.env.example
+
+# macOS
+.DS_Store
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Rider
+.idea/
+
+# Logging
+*.log

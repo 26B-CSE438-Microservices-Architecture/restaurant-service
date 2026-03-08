@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "I0SRTCgKjl2/ZS7hERygc6Ple2tAqh64GwVxDqwgOPM=",
+  "Source": "RestaurantService.API",
+  "BasePath": "_content/RestaurantService.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

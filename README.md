@@ -1,124 +1,437 @@
-## Restaurant Service - Trendyol GO Clone
-The Restaurant Service is the authoritative source of truth for all restaurant-related data and discovery within the microservices ecosystem. Since there is no standalone search service, this component also manages the Search & Filtering logic for the entire platform.
+# Restaurant Service — Trendyol GO Clone
 
-## Key Features
-Restaurant Management: Onboarding new partners and managing profile metadata (location, contact, etc.).
+> **Mikroservis Mimarisi Projesi** · CSE 438  
+> Ekosistem içindeki tüm restoran, menü ve ürün verilerinin tek yetkili kaynağıdır.
 
-Search & Discovery: Handling keyword searches (e.g., "Burger") and mutfak (cuisine) filtering directly from the database.
+Platformda ayrı bir arama servisi bulunmadığından, **Arama & Keşif** mantığı da bu servis tarafından yönetilmektedir — isim ile arama, mutfak filtreleme ve konum bazlı sıralama işlemleri burada gerçekleştirilir.
 
-Dynamic Menus: Managing hierarchical structures for categories and products.
+---
 
-Real-time Availability: Toggling store status (Open/Closed/Busy) and product stock levels.
+## İçindekiler
 
-Geospatial Support: Storing coordinates for distance-based sorting (finding restaurants near the user).
+- [Temel Özellikler](#temel-özellikler)
+- [Tech Stack](#tech-stack)
+- [Database Şeması](#database-şeması)
+- [API Endpointleri](#api-endpointleri)
+- [Servisler Arası İletişim](#servisler-arası-iletişim)
+- [Domain Eventler](#domain-eventler)
+- [Hızlı Başlangıç](#hızlı-başlangıç)
 
-Operational Rules: Managing minimum order amounts and delivery fees per restaurant.
+---
 
-## System Requirements
-1. Functional Requirements
-Onboarding: Allow restaurant partners to register with physical locations (Lat/Long) and operating hours.
+## Temel Özellikler
 
-Search Engine: Provide a search interface to find restaurants by name, category, or food items.
+| Özellik | Açıklama |
+|---|---|
+| **Restoran Yönetimi** | Yeni partner ekleme, profil bilgilerinin yönetimi (konum, iletişim, çalışma saatleri) |
+| **Arama & Keşif** | İsme göre arama, mutfak türü filtreleme, mesafeye göre sıralama |
+| **Dinamik Menüler** | Her restoran için hiyerarşik kategori → ürün yapısı |
+| **Anlık Durum Yönetimi** | Mağaza durumunu (`Open` / `Closed` / `Busy`) ve ürün stoğunu değiştirme |
+| **Coğrafi Konum Desteği** | PostGIS ile enlem/boylam koordinatları üzerinden yakınlık sorguları |
+| **Operasyonel Kurallar** | Restoran bazında minimum sipariş tutarı ve teslimat ücreti |
 
-Menu Management: Create/Update/Delete menu categories and individual products.
+---
 
-Emergency Toggle: Allow owners to close the restaurant immediately during high-occupancy periods.
+## Tech Stack
 
-Stock Management: Instant "Out of Stock" marking for products.
+| Katman | Teknoloji |
+|---|---|
+| Çalışma Ortamı | .NET 9 / ASP.NET Core Web API |
+| Veritabanı | PostgreSQL 16 + PostGIS 3.4 |
+| ORM | Entity Framework Core + NetTopologySuite |
+| Konteynerizasyon | Docker & Docker Compose |
+| API Dokümantasyonu | Swagger / OpenAPI v1 |
+| Veritabanı Yönetimi | pgAdmin 4 |
 
-Location Filtering: List restaurants based on the user's current coordinates.
+---
 
-2. Non-Functional Requirements
-High Availability: As the primary catalog, the service must be available for users to browse even if payment or order services are under maintenance.
+## Database Şeması
 
-Read Performance: Since it handles all search queries, read operations must be optimized (using Indexes or Caching) to handle high traffic.
+**Database:** `restaurantdb` (PostgreSQL 16 + PostGIS)
 
-Scalability: Must support concurrent users browsing menus simultaneously.
+### Entity Relationship Diagram
 
-## Interfaces & Communication
-1. REST API (Primary Interface)
-Used by the API Gateway to serve both the Mobile and Frontend applications.
+```
+┌─────────────────────────────────────────────────────────┐
+│                      Restaurant                         │
+├─────────────────────────────────────────────────────────┤
+│ PK │ id              │ UUID  (gen_random_uuid())        │
+│    │ name            │ VARCHAR(200)  NOT NULL            │
+│    │ description     │ VARCHAR(500)                      │
+│    │ address_text    │ VARCHAR(500)                      │
+│    │ latitude        │ DOUBLE PRECISION                  │
+│    │ longitude       │ DOUBLE PRECISION                  │
+│    │ logo_url        │ VARCHAR(500)                      │
+│    │ min_order_amount│ DECIMAL(10,2)                     │
+│    │ delivery_fee    │ DECIMAL(10,2)                     │
+│    │ is_active       │ BOOLEAN  (default: true)          │
+│    │ status          │ VARCHAR(20) [Open/Closed/Busy]    │
+│    │ opening_time    │ TIME                              │
+│    │ closing_time    │ TIME                              │
+│    │ created_at      │ TIMESTAMP                         │
+│    │ updated_at      │ TIMESTAMP                         │
+└──────────────────┬──────────────────────────────────────┘
+                   │ 1 : N
+                   ▼
+┌─────────────────────────────────────────────────────────┐
+│                     MenuCategory                        │
+├─────────────────────────────────────────────────────────┤
+│ PK │ id              │ UUID  (gen_random_uuid())        │
+│ FK │ restaurant_id   │ UUID → Restaurant.id (CASCADE)   │
+│    │ name            │ VARCHAR(200)  NOT NULL            │
+│    │ display_order   │ INTEGER                           │
+└──────────────────┬──────────────────────────────────────┘
+                   │ 1 : N
+                   ▼
+┌─────────────────────────────────────────────────────────┐
+│                       Product                           │
+├─────────────────────────────────────────────────────────┤
+│ PK │ id              │ UUID  (gen_random_uuid())        │
+│ FK │ category_id     │ UUID → MenuCategory.id (CASCADE) │
+│    │ name            │ VARCHAR(200)  NOT NULL            │
+│    │ description     │ VARCHAR(500)                      │
+│    │ price           │ DECIMAL(10,2)                     │
+│    │ is_available    │ BOOLEAN  (default: true)          │
+│    │ image_url       │ VARCHAR(500)                      │
+└─────────────────────────────────────────────────────────┘
+```
 
-Discovery Endpoints: Used by customers to find where to eat.
+## API Endpointleri
 
-Management Endpoints: Used by the User/Owner to update their store.
+**Base URL:** `http://localhost:5001/api/v1`  
+**Swagger UI:** `http://localhost:5001/swagger`
 
-2. gRPC (Synchronous Internal)
-Critical for high-speed data validation between services.
+### Discovery (Müşteri Tarafı)
 
-Price & Stock Validation: A gRPC call from the Order Service to the Restaurant Service during checkout to ensure the item is still available and the price is correct.
+| Metot | Endpoint | Açıklama |
+|---|---|---|
+| `GET` | `/restaurants` | Restoranları listele / ara |
+| `GET` | `/restaurants/{id}` | Restoran detayını getir |
+| `GET` | `/restaurants/nearby` | Yakındaki restoranları bul |
+| `GET` | `/restaurants/{restaurantId}/menu` | Tam menüyü getir (kategoriler + ürünler) |
 
-3. Event-Driven Interface (Async - Pub/Sub)
-Broadcasts changes to the rest of the system via RabbitMQ/Kafka:
+<details>
+<summary>Örnek Yanıt — <code>GET /restaurants</code></summary>
 
-Topic: restaurant-status-events -> Notifies the system of store closures so the Mobile app can update the UI.
+```json
+[
+  {
+    "id": "a1b2c3d4-...",
+    "name": "Burger King",
+    "description": "Fast food",
+    "logoUrl": "https://...",
+    "minOrderAmount": 50.00,
+    "deliveryFee": 9.99,
+    "status": "Open",
+    "distanceKm": 2.4
+  }
+]
+```
 
-Topic: stock-alerts -> Notifies the Order Service to prevent customers from adding unavailable items to their cart.
+</details>
 
-## Database Schema
-1. Restaurant Entity
-id: UUID (Primary Key)
+<details>
+<summary>Örnek Yanıt — <code>GET /restaurants/{id}/menu</code></summary>
 
-name: String (Brand name)
+```json
+{
+  "restaurantId": "a1b2c3d4-...",
+  "restaurantName": "Burger King",
+  "categories": [
+    {
+      "id": "cat-001",
+      "name": "Burgers",
+      "displayOrder": 1,
+      "products": [
+        {
+          "id": "prod-001",
+          "name": "Classic Whopper",
+          "description": "Flame-grilled beef patty",
+          "price": 89.90,
+          "isAvailable": true,
+          "imageUrl": "https://..."
+        }
+      ]
+    }
+  ]
+}
+```
 
-description: String (Cuisine info)
+</details>
 
-address_text: String (Physical address)
+---
 
-latitude / longitude: Decimal (For proximity-based searching)
+### Restoran Yönetimi (İşletme Sahibi Tarafı)
 
-logo_url: String (Image URL)
+| Metot | Endpoint | Açıklama | Request Body |
+|---|---|---|---|
+| `POST` | `/restaurants` | Yeni restoran kaydet | `CreateRestaurantDto` |
+| `PUT` | `/restaurants/{id}` | Restoran profilini güncelle | `UpdateRestaurantDto` |
+| `PATCH` | `/restaurants/{id}/status` | Durum değiştir (Open/Closed/Busy) | `UpdateStatusDto` |
+| `DELETE` | `/restaurants/{id}` | Restoranı sil | — |
 
-min_order_amount: Decimal
+<details>
+<summary>Request Body — <code>POST /restaurants</code></summary>
 
-delivery_fee: Decimal
+```json
+{
+  "name": "Burger King",
+  "description": "Fast food restaurant",
+  "addressText": "Kadıköy, İstanbul",
+  "latitude": 40.9907,
+  "longitude": 29.0230,
+  "logoUrl": "https://example.com/logo.png",
+  "minOrderAmount": 50.00,
+  "deliveryFee": 9.99,
+  "openingTime": "09:00",
+  "closingTime": "23:00"
+}
+```
 
-is_active: Boolean (Master status)
+</details>
 
-opening_time / closing_time: Time
+<details>
+<summary>Request Body — <code>PATCH /restaurants/{id}/status</code></summary>
 
-2. MenuCategory Entity
-id: UUID (Primary Key)
+```json
+{
+  "status": "Busy"    // "Open" | "Closed" | "Busy"
+}
+```
 
-restaurant_id: UUID (Foreign Key)
+</details>
 
-name: String (e.g., "Burgers", "Drinks")
+---
 
-display_order: Integer (Sort order)
+### Menü & Kategori Yönetimi
 
-3. Product Entity
-id: UUID (Primary Key)
+| Metot | Endpoint | Açıklama | Request Body |
+|---|---|---|---|
+| `POST` | `/restaurants/{restaurantId}/categories` | Menü kategorisi ekle | `CreateCategoryDto` |
+| `PUT` | `/categories/{id}` | Kategoriyi güncelle | `UpdateCategoryDto` |
+| `DELETE` | `/categories/{id}` | Kategoriyi sil | — |
 
-category_id: UUID (Foreign Key)
+<details>
+<summary>Request Body — <code>POST /restaurants/{restaurantId}/categories</code></summary>
 
-name: String (e.g., "Classic Burger")
+```json
+{
+  "name": "Burgers",
+  "displayOrder": 1
+}
+```
 
-price: Decimal
+</details>
 
-is_available: Boolean (Stock flag)
+---
 
-image_url: String
+### Ürün Yönetimi
 
-## API Endpoints
-Customer & Search Scope
-GET /api/v1/restaurants - List all restaurants. (Filters: ?name=..., ?cuisine=..., ?lat=...&long=...).
+| Metot | Endpoint | Açıklama | Request Body |
+|---|---|---|---|
+| `POST` | `/categories/{categoryId}/products` | Kategoriye ürün ekle | `CreateProductDto` |
+| `PUT` | `/products/{id}` | Ürün bilgilerini güncelle | `UpdateProductDto` |
+| `PATCH` | `/products/{id}/stock` | Stok durumunu değiştir | `UpdateStockDto` |
+| `DELETE` | `/products/{id}` | Ürünü sil | — |
 
-GET /api/v1/restaurants/{id}/menu - Fetch categories and nested products for a store.
+<details>
+<summary>Request Body — <code>POST /categories/{categoryId}/products</code></summary>
 
-GET /api/v1/restaurants/top-rated - Get featured restaurants.
+```json
+{
+  "name": "Classic Whopper",
+  "description": "Flame-grilled beef patty with fresh veggies",
+  "price": 89.90,
+  "imageUrl": "https://example.com/whopper.png"
+}
+```
 
-Management Scope
-POST /api/v1/restaurants - Register new restaurant.
+</details>
 
-PATCH /api/v1/restaurants/{id}/status - Toggle Open/Busy/Closed.
+<details>
+<summary>Request Body — <code>PATCH /products/{id}/stock</code></summary>
 
-PATCH /api/v1/products/{id}/stock - Update product availability.
+```json
+{
+  "isAvailable": false
+}
+```
 
-PUT /api/v1/products/{id} - Update price or description.
+</details>
 
-## Inter-Service Communication Logic
-Direct Search Responsibility: Because there is no separate Search Service, this service must implement efficient database indexing (e.g., B-Tree on name, GIST for coordinates) to ensure search results are fast.
+---
 
-Order Validation: When the Order Service receives a request, it calls this service via gRPC to confirm the basket items are valid before proceeding to the Payment Service.
+## Servisler Arası İletişim
 
-UI Updates: Upon a status change (e.g., Restaurant Closes), an event is fired. The Mobile/Frontend apps listen for this to gray out the restaurant in the UI.
+### İletişim Protokolleri
+
+```
+                          ┌──────────────┐
+                          │  API Gateway │
+                          └──────┬───────┘
+                                 │  REST (HTTP)
+                                 ▼
+                     ┌───────────────────────┐
+                     │  Restaurant Service   │
+                     │    (bu servis)        │
+                     └───┬──────────┬────────┘
+                         │          │
+            gRPC (sync)  │          │  Event (async)
+                         │          │
+              ┌──────────▼──┐   ┌──▼──────────────┐
+              │Order Service│   │  Message Broker  │
+              │             │   │ (RabbitMQ/Kafka) │
+              └─────────────┘   └──┬─────┬────────┘
+                                   │     │
+                            ┌──────▼┐  ┌─▼────────┐
+                            │Mobil  │  │ Frontend  │
+                            │Uygulama│  │ Uygulama │
+                            └───────┘  └──────────┘
+```
+
+### 1. REST API — API Gateway → Restaurant Service
+
+| Yön | Çağıran | Amaç |
+|---|---|---|
+| **Gelen** | API Gateway | Mobil ve Frontend uygulamalardan gelen tüm HTTP isteklerini yönlendirir |
+
+### 2. gRPC — Order Service → Restaurant Service (Senkron)
+
+| Yön | Çağıran | Amaç |
+|---|---|---|
+| **Gelen** | Order Service | Ödeme sırasında **fiyat ve stok doğrulaması** yapar |
+
+Order Service, sipariş oluşturulmadan önce sepetteki ürünlerin **hâlâ mevcut** olduğunu ve **fiyatların doğru** olduğunu bu servis üzerinden doğrular.
+
+```protobuf
+// Planlanan gRPC sözleşmesi
+service RestaurantGrpc {
+  rpc ValidateBasketItems (ValidateBasketRequest) returns (ValidateBasketResponse);
+  rpc GetProductDetails   (ProductIdList)         returns (ProductDetailsList);
+}
+```
+
+### 3. Event-Driven — Restaurant Service → Message Broker (Asenkron)
+
+Restoran durumu veya stok değiştiğinde tüm sistemi asenkron olarak bilgilendirir.
+
+---
+
+## Domain Eventler
+
+### Bu Servisin Yayınladığı Eventler (Outbound)
+
+Aşağıdaki eventler bu servis tarafından **yayınlanır** ve diğer servisler tarafından tüketilir:
+
+| Event Adı | Topic/Queue | Tetikleyici | Payload | Tüketiciler |
+|---|---|---|---|---|
+| `RestaurantStatusChanged` | `restaurant.status.changed` | Owner durum değişikliği yaptığında (PATCH `/status`) | `{ restaurantId, oldStatus, newStatus, timestamp }` | **Order Service** · **Mobil Uygulama** · **Frontend** |
+| `RestaurantCreated` | `restaurant.created` | Yeni restoran kaydedildiğinde (POST `/restaurants`) | `{ restaurantId, name, latitude, longitude, timestamp }` | **API Gateway** · **Frontend** |
+| `RestaurantUpdated` | `restaurant.updated` | Restoran bilgileri güncellendiğinde (PUT `/restaurants/{id}`) | `{ restaurantId, changedFields[], timestamp }` | **Frontend** · **Mobil Uygulama** |
+| `RestaurantDeleted` | `restaurant.deleted` | Restoran silindiğinde (DELETE `/restaurants/{id}`) | `{ restaurantId, timestamp }` | **Order Service** · **API Gateway** |
+| `ProductStockChanged` | `product.stock.changed` | Ürün stok durumu değiştiğinde (PATCH `/products/{id}/stock`) | `{ productId, restaurantId, isAvailable, timestamp }` | **Order Service** · **Mobil Uygulama** |
+| `MenuUpdated` | `menu.updated` | Kategori veya ürün eklendiğinde / güncellendiğinde / silindiğinde | `{ restaurantId, action, entityType, entityId, timestamp }` | **Frontend** · **Mobil Uygulama** |
+| `PriceChanged` | `product.price.changed` | Ürün fiyatı güncellendiğinde (PUT `/products/{id}`) | `{ productId, restaurantId, oldPrice, newPrice, timestamp }` | **Order Service** |
+
+### Bu Servisin Dinlediği Eventler (Inbound)
+
+Aşağıdaki eventleri diğer servislerden **dinler**:
+
+| Event Adı | Kaynak Servis | Amaç | Yapılan İşlem |
+|---|---|---|---|
+| `OrderCompleted` | Order Service | Sipariş tamamlandığında bilgi almak | İleride istatistik / analitik verisi toplanabilir |
+| `UserRoleChanged` | User Service | Kullanıcı rolü değiştiğinde (yeni owner atanması) | Restoran yetkilendirmesini güncelleme |
+
+---
+
+### Diğer Servislerden Ne Bekliyoruz?
+
+| Servis | Ne Bekliyoruz | Protokol | Neden |
+|---|---|---|---|
+| **API Gateway** | İstek yönlendirme, rate limiting, kimlik doğrulama | REST | Tüm dış trafiğin güvenli şekilde yönlendirilmesi |
+| **Order Service** | `OrderCompleted` event | Async (Pub/Sub) | Sipariş istatistiklerinin toplanması |
+| **DevOps** | Docker registry, CI/CD pipeline, izleme | Altyapı | Servisin deploy ve monitor edilmesi |
+
+### Diğer Servisler Bizden Ne Bekliyor?
+
+| Servis | Ne Bekliyorlar | Protokol | Amaç |
+|---|---|---|---|
+| **Order Service** | Ürün fiyat & stok doğrulaması | gRPC (sync) | Sipariş oluşturmadan önce sepet validasyonu |
+| **Order Service** | `RestaurantStatusChanged`, `ProductStockChanged` eventleri | Async (Pub/Sub) | Kapalı restorana sipariş engelleme, stoksuz ürün kontrolü |
+| **Mobil Uygulama** | Restoran listesi, menü verisi, durum güncellemeleri | REST + Event | Müşteri arayüzünün güncel tutulması |
+| **Frontend** | Restoran CRUD, menü yönetimi, anlık durum | REST + Event | Admin paneli & müşteri web arayüzü |
+| **Order Service** | Minimum sipariş tutarı, teslimat ücreti bilgisi | gRPC (veya REST) | (Order Service tarafından) Sepet alt limitinin doğrulanması ve nihai tutarın hesaplanması |
+| **API Gateway** | Servis sağlık kontrolü, endpoint kaydı | REST | Routing tablosunun oluşturulması |
+
+---
+
+## Hızlı Başlangıç
+
+### Gereksinimler
+
+- Docker & Docker Compose
+
+### Çalıştırma
+
+```bash
+docker compose up --build
+```
+
+### Servisler
+
+| Servis | URL |
+|---|---|
+| Restaurant API | http://localhost:5001 |
+| Swagger UI | http://localhost:5001/swagger |
+| PostgreSQL | localhost:5432 |
+| pgAdmin | http://localhost:5051 |
+
+### pgAdmin Kimlik Bilgileri
+
+| Alan | Değer |
+|---|---|
+| E-posta | admin@restaurant.com |
+| Şifre | admin123 |
+
+### Veritabanı Bağlantısı (pgAdmin üzerinden)
+
+| Alan | Değer |
+|---|---|
+| Host | postgres |
+| Port | 5432 |
+| Veritabanı | restaurantdb |
+| Kullanıcı Adı | postgres |
+| Şifre | postgres123 |
+
+---
+
+## Proje Yapısı
+
+```
+restaurant-service/
+├── Dockerfile
+├── docker-compose.yml
+├── README.md
+└── RestaurantService.API/
+    ├── Controllers/
+    │   ├── RestaurantsController.cs    # Restoran CRUD + Arama
+    │   └── MenuController.cs          # Menü, Kategori & Ürün yönetimi
+    ├── DTOs/
+    │   └── Dtos.cs                    # İstek / Yanıt modelleri
+    ├── Entities/
+    │   ├── Restaurant.cs              # Restoran varlığı
+    │   ├── MenuCategory.cs            # Kategori varlığı
+    │   ├── Product.cs                 # Ürün varlığı
+    │   └── RestaurantStatus.cs        # Enum: Open, Closed, Busy
+    ├── Data/
+    │   └── AppDbContext.cs            # EF Core DbContext + Fluent yapılandırma
+    ├── Services/
+    │   ├── IRestaurantService.cs      # Arayüz
+    │   ├── RestaurantServiceImpl.cs   # Uygulama
+    │   ├── IMenuService.cs            # Arayüz
+    │   └── MenuServiceImpl.cs         # Uygulama
+    ├── Migrations/                    # EF Core migration dosyaları
+    └── Program.cs                     # Uygulama giriş noktası + DI yapılandırma
+```
+
+

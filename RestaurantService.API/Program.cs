@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RestaurantService.API.Data;
 using RestaurantService.API.Services;
+using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,21 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
+    });
+});
+
+// ── MassTransit & RabbitMQ ──
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host(builder.Configuration["RabbitMQ:Host"], h =>
+        {
+            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "guest");
+            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "guest");
+        });
+        
+        cfg.ConfigureEndpoints(context);
     });
 });
 

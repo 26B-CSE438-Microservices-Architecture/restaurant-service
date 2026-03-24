@@ -2,16 +2,20 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantService.API.Data;
 using RestaurantService.API.DTOs;
 using RestaurantService.API.Entities;
+using MassTransit;
+using RestaurantService.API.IntegrationEvents;
 
 namespace RestaurantService.API.Services;
 
 public class MenuServiceImpl : IMenuService
 {
     private readonly AppDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
 
-    public MenuServiceImpl(AppDbContext db)
+    public MenuServiceImpl(AppDbContext db, IPublishEndpoint publishEndpoint)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
     }
 
     public async Task<MenuDto?> GetFullMenuAsync(Guid restaurantId)
@@ -56,6 +60,14 @@ public class MenuServiceImpl : IMenuService
         _db.MenuCategories.Add(category);
         await _db.SaveChangesAsync();
 
+        await _publishEndpoint.Publish(new MenuUpdatedEvent(
+            restaurantId,
+            "Created",
+            "Category",
+            category.Id,
+            DateTime.UtcNow
+        ));
+
         return new CategoryDto
         {
             Id = category.Id,
@@ -79,6 +91,14 @@ public class MenuServiceImpl : IMenuService
 
         await _db.SaveChangesAsync();
 
+        await _publishEndpoint.Publish(new MenuUpdatedEvent(
+            category.RestaurantId,
+            "Updated",
+            "Category",
+            category.Id,
+            DateTime.UtcNow
+        ));
+
         return new CategoryDto
         {
             Id = category.Id,
@@ -94,8 +114,18 @@ public class MenuServiceImpl : IMenuService
         var category = await _db.MenuCategories.FindAsync(categoryId);
         if (category == null) return false;
 
+        var restaurantId = category.RestaurantId;
+
         _db.MenuCategories.Remove(category);
         await _db.SaveChangesAsync();
+
+        await _publishEndpoint.Publish(new MenuUpdatedEvent(
+            restaurantId,
+            "Deleted",
+            "Category",
+            categoryId,
+            DateTime.UtcNow
+        ));
         return true;
     }
 
@@ -120,6 +150,14 @@ public class MenuServiceImpl : IMenuService
         _db.Products.Add(product);
         await _db.SaveChangesAsync();
 
+        await _publishEndpoint.Publish(new MenuUpdatedEvent(
+            category.RestaurantId,
+            "Created",
+            "Product",
+            product.Id,
+            DateTime.UtcNow
+        ));
+
         return MapToProductDto(product);
     }
 
@@ -128,12 +166,24 @@ public class MenuServiceImpl : IMenuService
         var product = await _db.Products.FindAsync(productId);
         if (product == null) return null;
 
+        var oldPrice = product.Price;
+        
         product.Name = dto.Name;
         product.Description = dto.Description;
         product.Price = dto.Price;
         product.ImageUrl = dto.ImageUrl;
 
         await _db.SaveChangesAsync();
+
+        var category = await _db.MenuCategories.FindAsync(product.CategoryId);
+        if (category != null)
+        {
+            if (oldPrice != dto.Price)
+            {
+                await _publishEndpoint.Publish(new PriceChangedEvent(product.Id, category.RestaurantId, oldPrice, dto.Price, DateTime.UtcNow));
+            }
+            await _publishEndpoint.Publish(new MenuUpdatedEvent(category.RestaurantId, "Updated", "Product", product.Id, DateTime.UtcNow));
+        }
         return MapToProductDto(product);
     }
 
@@ -145,6 +195,12 @@ public class MenuServiceImpl : IMenuService
         product.IsAvailable = dto.IsAvailable;
 
         await _db.SaveChangesAsync();
+
+        var category = await _db.MenuCategories.FindAsync(product.CategoryId);
+        if (category != null)
+        {
+            await _publishEndpoint.Publish(new ProductStockChangedEvent(product.Id, category.RestaurantId, product.IsAvailable, DateTime.UtcNow));
+        }
         return MapToProductDto(product);
     }
 
@@ -153,8 +209,16 @@ public class MenuServiceImpl : IMenuService
         var product = await _db.Products.FindAsync(productId);
         if (product == null) return false;
 
+        var categoryId = product.CategoryId;
+
         _db.Products.Remove(product);
         await _db.SaveChangesAsync();
+
+        var category = await _db.MenuCategories.FindAsync(categoryId);
+        if (category != null)
+        {
+            await _publishEndpoint.Publish(new MenuUpdatedEvent(category.RestaurantId, "Deleted", "Product", productId, DateTime.UtcNow));
+        }
         return true;
     }
 

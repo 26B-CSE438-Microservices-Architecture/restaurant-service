@@ -2,16 +2,20 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantService.API.Data;
 using RestaurantService.API.DTOs;
 using RestaurantService.API.Entities;
+using MassTransit;
+using RestaurantService.API.IntegrationEvents;
 
 namespace RestaurantService.API.Services;
 
 public class RestaurantServiceImpl : IRestaurantService
 {
     private readonly AppDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
 
-    public RestaurantServiceImpl(AppDbContext db)
+    public RestaurantServiceImpl(AppDbContext db, IPublishEndpoint publishEndpoint)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
     }
 
     public async Task<List<RestaurantSummaryDto>> GetAllAsync(string? name, string? cuisine, double? lat, double? lng)
@@ -103,6 +107,14 @@ public class RestaurantServiceImpl : IRestaurantService
         _db.Restaurants.Add(restaurant);
         await _db.SaveChangesAsync();
 
+        await _publishEndpoint.Publish(new RestaurantCreatedEvent(
+            restaurant.Id,
+            restaurant.Name,
+            restaurant.Latitude,
+            restaurant.Longitude,
+            DateTime.UtcNow
+        ));
+
         return MapToDto(restaurant);
     }
 
@@ -124,6 +136,12 @@ public class RestaurantServiceImpl : IRestaurantService
         restaurant.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        
+        await _publishEndpoint.Publish(new RestaurantUpdatedEvent(
+            restaurant.Id,
+            new[] { "All" }, 
+            DateTime.UtcNow
+        ));
         return MapToDto(restaurant);
     }
 
@@ -135,10 +153,18 @@ public class RestaurantServiceImpl : IRestaurantService
         if (!Enum.TryParse<RestaurantStatus>(dto.Status, true, out var status))
             throw new ArgumentException($"Invalid status: {dto.Status}. Use Open, Closed, or Busy.");
 
+        var oldStatus = restaurant.Status.ToString();
         restaurant.Status = status;
         restaurant.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        await _publishEndpoint.Publish(new RestaurantStatusChangedEvent(
+            restaurant.Id,
+            oldStatus,
+            restaurant.Status.ToString(),
+            DateTime.UtcNow
+        ));
         return MapToDto(restaurant);
     }
 
@@ -149,6 +175,11 @@ public class RestaurantServiceImpl : IRestaurantService
 
         _db.Restaurants.Remove(restaurant);
         await _db.SaveChangesAsync();
+
+        await _publishEndpoint.Publish(new RestaurantDeletedEvent(
+            id,
+            DateTime.UtcNow
+        ));
         return true;
     }
 

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RestaurantService.API.Data;
 using RestaurantService.API.Services;
 using MassTransit;
+using RestaurantService.API.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +46,9 @@ builder.Services.AddCors(options =>
 // ── MassTransit & RabbitMQ ──
 builder.Services.AddMassTransit(x =>
 {
+    x.AddConsumer<OrderCompletedEventConsumer>();
+    x.AddConsumer<UserRoleChangedEventConsumer>();
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host(builder.Configuration["RabbitMQ:Host"], h =>

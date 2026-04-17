@@ -7,11 +7,14 @@ using RestaurantService.API.Consumers;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Database ──
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        o => o.UseNetTopologySuite()
-    ));
+if (builder.Environment.EnvironmentName != "Testing")
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            o => o.UseNetTopologySuite()
+        ));
+}
 
 // ── Services (DI) ──
 builder.Services.AddScoped<IRestaurantService, RestaurantServiceImpl>();
@@ -63,9 +66,10 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 
-// ── Auto-migrate on startup ──
-using (var scope = app.Services.CreateScope())
+// ── Auto-migrate on startup (skip in Testing — InMemory DB kullanılır) ──
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
 }
@@ -82,3 +86,6 @@ app.UseCors();
 app.MapControllers();
 
 app.Run();
+
+// Integration testleri için WebApplicationFactory erişimi
+public partial class Program { }

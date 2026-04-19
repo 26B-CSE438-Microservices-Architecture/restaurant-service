@@ -107,6 +107,11 @@ namespace RestaurantService.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CuisineType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<decimal>("DeliveryFee")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
@@ -151,6 +156,8 @@ namespace RestaurantService.API.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CuisineType");
 
                     b.HasIndex("IsActive");
 

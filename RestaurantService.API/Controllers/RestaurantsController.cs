@@ -41,6 +41,18 @@ public class RestaurantsController : ControllerBase
     }
 
     /// <summary>
+    /// Get minimal restaurant info for the user-service "Favorite Restaurants" screen.
+    /// Returns only: name, type, opening hours, location and open/closed status.
+    /// </summary>
+    [HttpGet("{id}/favorite-info")]
+    public async Task<ActionResult<FavoriteRestaurantInfoDto>> GetFavoriteInfo(Guid id)
+    {
+        var info = await _restaurantService.GetFavoriteInfoAsync(id);
+        if (info == null) return NotFound();
+        return Ok(info);
+    }
+
+    /// <summary>
     /// Get nearby restaurants within radius
     /// </summary>
     [HttpGet("nearby")]

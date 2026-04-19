@@ -30,10 +30,10 @@ public class RestaurantServiceImpl : IRestaurantService
             query = query.Where(r => r.Name.ToLower().Contains(name.ToLower()));
         }
 
-        // Filter by cuisine/description
+        // Filter by cuisine type
         if (!string.IsNullOrWhiteSpace(cuisine))
         {
-            query = query.Where(r => r.Description.ToLower().Contains(cuisine.ToLower()));
+            query = query.Where(r => r.CuisineType.ToLower().Contains(cuisine.ToLower()));
         }
 
         var restaurants = await query.ToListAsync();
@@ -66,6 +66,40 @@ public class RestaurantServiceImpl : IRestaurantService
         return restaurant == null ? null : MapToDto(restaurant);
     }
 
+    public async Task<FavoriteRestaurantInfoDto?> GetFavoriteInfoAsync(Guid id)
+    {
+        var restaurant = await _db.Restaurants.FindAsync(id);
+        if (restaurant == null) return null;
+
+        return new FavoriteRestaurantInfoDto
+        {
+            Id = restaurant.Id,
+            Name = restaurant.Name,
+            RestaurantType = restaurant.CuisineType,
+            OpeningTime = restaurant.OpeningTime,
+            ClosingTime = restaurant.ClosingTime,
+            AddressText = restaurant.AddressText,
+            Latitude = restaurant.Latitude,
+            Longitude = restaurant.Longitude,
+            Status = restaurant.Status.ToString(),
+            IsOpenNow = IsCurrentlyOpen(restaurant)
+        };
+    }
+
+    private static bool IsCurrentlyOpen(Restaurant r)
+    {
+        if (!r.IsActive || r.Status == RestaurantStatus.Closed)
+            return false;
+
+        var now = TimeOnly.FromDateTime(DateTime.Now);
+
+        // Handles schedules that cross midnight (e.g. 18:00 - 02:00)
+        if (r.ClosingTime <= r.OpeningTime)
+            return now >= r.OpeningTime || now <= r.ClosingTime;
+
+        return now >= r.OpeningTime && now <= r.ClosingTime;
+    }
+
     public async Task<List<RestaurantSummaryDto>> GetNearbyAsync(double lat, double lng, double radiusKm)
     {
         var restaurants = await _db.Restaurants
@@ -90,6 +124,7 @@ public class RestaurantServiceImpl : IRestaurantService
         {
             Name = dto.Name,
             Description = dto.Description,
+            CuisineType = dto.CuisineType,
             AddressText = dto.AddressText,
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
@@ -125,6 +160,7 @@ public class RestaurantServiceImpl : IRestaurantService
 
         restaurant.Name = dto.Name;
         restaurant.Description = dto.Description;
+        restaurant.CuisineType = dto.CuisineType;
         restaurant.AddressText = dto.AddressText;
         restaurant.Latitude = dto.Latitude;
         restaurant.Longitude = dto.Longitude;
@@ -208,6 +244,7 @@ public class RestaurantServiceImpl : IRestaurantService
         Id = r.Id,
         Name = r.Name,
         Description = r.Description,
+        CuisineType = r.CuisineType,
         AddressText = r.AddressText,
         Latitude = r.Latitude,
         Longitude = r.Longitude,

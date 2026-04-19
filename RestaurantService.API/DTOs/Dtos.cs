@@ -13,6 +13,9 @@ public class CreateRestaurantDto
     [MaxLength(500)]
     public string Description { get; set; } = string.Empty;
 
+    [MaxLength(100)]
+    public string CuisineType { get; set; } = string.Empty;
+
     [MaxLength(500)]
     public string AddressText { get; set; } = string.Empty;
 
@@ -41,6 +44,9 @@ public class UpdateRestaurantDto
     [MaxLength(500)]
     public string Description { get; set; } = string.Empty;
 
+    [MaxLength(100)]
+    public string CuisineType { get; set; } = string.Empty;
+
     [MaxLength(500)]
     public string AddressText { get; set; } = string.Empty;
 
@@ -65,6 +71,7 @@ public class RestaurantDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string CuisineType { get; set; } = string.Empty;
     public string AddressText { get; set; } = string.Empty;
     public double Latitude { get; set; }
     public double Longitude { get; set; }
@@ -89,6 +96,22 @@ public class RestaurantSummaryDto
     public decimal DeliveryFee { get; set; }
     public string Status { get; set; } = string.Empty;
     public double? DistanceKm { get; set; }
+}
+
+// Minimal DTO used by user-service for the "Favori Restoranlarım" screen.
+// Only returns what the UI needs: name, type, open hours, location and open/closed state.
+public class FavoriteRestaurantInfoDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string RestaurantType { get; set; } = string.Empty;
+    public TimeOnly OpeningTime { get; set; }
+    public TimeOnly ClosingTime { get; set; }
+    public string AddressText { get; set; } = string.Empty;
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public bool IsOpenNow { get; set; }
 }
 
 public class UpdateStatusDto

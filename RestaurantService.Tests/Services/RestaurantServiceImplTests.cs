@@ -39,13 +39,15 @@ public class RestaurantServiceImplTests : IDisposable
         RestaurantStatus status = RestaurantStatus.Open,
         double lat = 41.0082,
         double lng = 28.9784,
-        string description = "Test Description")
+        string description = "Test Description",
+        string cuisineType = "Test Cuisine")
     {
         var restaurant = new Restaurant
         {
             Id = Guid.NewGuid(),
             Name = name,
             Description = description,
+            CuisineType = cuisineType,
             AddressText = "Test Address",
             Latitude = lat,
             Longitude = lng,
@@ -101,16 +103,16 @@ public class RestaurantServiceImplTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAllAsync_WithCuisineFilter_ShouldFilterByDescription()
+    public async Task GetAllAsync_WithCuisineFilter_ShouldFilterByCuisineType()
     {
         // Arrange
-        await SeedRestaurantAsync("Restaurant A", description: "Best Italian Food");
-        await SeedRestaurantAsync("Restaurant B", description: "Turkish Kebab");
+        await SeedRestaurantAsync("Restaurant A", cuisineType: "Italian");
+        await SeedRestaurantAsync("Restaurant B", cuisineType: "Turkish Kebab");
 
-        // Sanity check: veritabanında description doğru kaydedilmiş mi?
+        // Sanity check: veritabanında cuisine type doğru kaydedilmiş mi?
         var allInDb = await _db.Restaurants.ToListAsync();
         allInDb.Should().HaveCount(2);
-        allInDb.Should().Contain(r => r.Description.Contains("Italian"));
+        allInDb.Should().Contain(r => r.CuisineType.Contains("Italian"));
 
         // Act
         var result = await _sut.GetAllAsync(null, "Italian", null, null);

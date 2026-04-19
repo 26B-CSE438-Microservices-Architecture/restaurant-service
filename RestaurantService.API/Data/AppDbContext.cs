@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
 
             entity.Property(r => r.Name).IsRequired().HasMaxLength(200);
             entity.Property(r => r.Description).HasMaxLength(500);
+            entity.Property(r => r.CuisineType).HasMaxLength(100);
             entity.Property(r => r.AddressText).HasMaxLength(500);
             entity.Property(r => r.LogoUrl).HasMaxLength(500);
 
@@ -35,6 +36,7 @@ public class AppDbContext : DbContext
 
             // Indexes for search performance
             entity.HasIndex(r => r.Name);
+            entity.HasIndex(r => r.CuisineType);
             entity.HasIndex(r => new { r.Latitude, r.Longitude });
             entity.HasIndex(r => r.IsActive);
 

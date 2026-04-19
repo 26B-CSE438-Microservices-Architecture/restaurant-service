@@ -13,6 +13,9 @@ public class Restaurant
     [MaxLength(500)]
     public string Description { get; set; } = string.Empty;
 
+    [MaxLength(100)]
+    public string CuisineType { get; set; } = string.Empty;
+
     [MaxLength(500)]
     public string AddressText { get; set; } = string.Empty;
 

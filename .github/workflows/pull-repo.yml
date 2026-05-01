@@ -17,4 +17,4 @@ jobs:
       - name: Docker Build and Up
         run: |
           cd /home/cse438/trendyol-clone
-          docker-compose up -d --build restaurant-service
+          docker compose up -d --build restaurant-service

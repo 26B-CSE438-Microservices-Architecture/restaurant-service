@@ -229,6 +229,7 @@ Platformda ayrı bir arama servisi bulunmadığından, **Arama & Keşif** mantı
 
 | Metot | Endpoint | Açıklama | Request Body |
 |---|---|---|---|
+| `GET` | `/products/{id}` | Ürün detayını getir | — |
 | `POST` | `/categories/{categoryId}/products` | Kategoriye ürün ekle | `CreateProductDto` |
 | `PUT` | `/products/{id}` | Ürün bilgilerini güncelle | `UpdateProductDto` |
 | `PATCH` | `/products/{id}/stock` | Stok durumunu değiştir | `UpdateStockDto` |
@@ -256,6 +257,116 @@ Platformda ayrı bir arama servisi bulunmadığından, **Arama & Keşif** mantı
   "isAvailable": false
 }
 ```
+
+</details>
+
+---
+
+### Internal API (Servisler Arası — Dışarıya Kapalı)
+
+> **Not:** Bu endpointler yalnızca diğer mikroservisler (örn. Order Service) tarafından çağrılır. API Gateway / Nginx tarafından dış trafiğe kapatılmalıdır.
+
+**Base URL:** `http://localhost:5001/internal`
+
+| Metot | Endpoint | Açıklama | Request Body |
+|---|---|---|---|
+| `POST` | `/restaurants/{restaurantId}/validate-items` | Sepetteki ürünlerin fiyat, stok ve restoran durumu doğrulaması | `List<ValidateItemsRequest>` |
+| `GET` | `/restaurants/{restaurantId}/is-open` | Restoranın açık ve aktif olup olmadığını sorgula | — |
+
+#### Validate Items — Doğrulama Mantığı
+
+`POST /internal/restaurants/{restaurantId}/validate-items` endpoint'i aşağıdaki kontrolleri sırasıyla yapar:
+
+1. **Restoran varlık kontrolü** — Restoran bulunamazsa `valid: false` döner.
+2. **Restoran durum kontrolü** — Restoran aktif değilse (`isActive = false`) veya durumu `Open` değilse sipariş kabul etmez.
+3. **Ürün varlık kontrolü** — İstekteki her ürünün ilgili restoranın menüsünde olup olmadığını kontrol eder.
+4. **Stok kontrolü** — Tüm ürünler bulunsa bile, `isAvailable = false` olan ürünler varsa `valid: false` ve ilgili hata mesajı döner.
+
+<details>
+<summary>Request Body — <code>POST /internal/restaurants/{restaurantId}/validate-items</code></summary>
+
+```json
+[
+  {
+    "menuItemId": "prod-001-uuid",
+    "quantity": 2
+  },
+  {
+    "menuItemId": "prod-002-uuid",
+    "quantity": 1
+  }
+]
+```
+
+</details>
+
+<details>
+<summary>Örnek Yanıt — Başarılı Doğrulama</summary>
+
+```json
+{
+  "valid": true,
+  "items": [
+    {
+      "menuItemId": "prod-001-uuid",
+      "name": "Classic Whopper",
+      "price": 89.90,
+      "available": true
+    },
+    {
+      "menuItemId": "prod-002-uuid",
+      "name": "Coca Cola",
+      "price": 15.00,
+      "available": true
+    }
+  ],
+  "errorMessage": null
+}
+```
+
+</details>
+
+<details>
+<summary>Örnek Yanıt — Restoran Kapalı</summary>
+
+```json
+{
+  "valid": false,
+  "items": [],
+  "errorMessage": "Restoran siparise kapali: a1b2c3d4-..."
+}
+```
+
+</details>
+
+<details>
+<summary>Örnek Yanıt — Stokta Olmayan Ürün</summary>
+
+```json
+{
+  "valid": false,
+  "items": [
+    {
+      "menuItemId": "prod-001-uuid",
+      "name": "Classic Whopper",
+      "price": 89.90,
+      "available": false
+    }
+  ],
+  "errorMessage": "Bir veya daha fazla urun su anda stokta degil."
+}
+```
+
+</details>
+
+<details>
+<summary>Örnek Yanıt — <code>GET /internal/restaurants/{restaurantId}/is-open</code></summary>
+
+```json
+true
+```
+
+Restoran yoksa, aktif değilse veya durumu `Open` değilse `false` döner.
 
 </details>
 
@@ -295,20 +406,22 @@ Platformda ayrı bir arama servisi bulunmadığından, **Arama & Keşif** mantı
 |---|---|---|
 | **Gelen** | API Gateway | Mobil ve Frontend uygulamalardan gelen tüm HTTP isteklerini yönlendirir |
 
-### 2. gRPC — Order Service → Restaurant Service (Senkron)
+### 2. REST (Internal) — Order Service → Restaurant Service (Senkron)
 
 | Yön | Çağıran | Amaç |
 |---|---|---|
-| **Gelen** | Order Service | Ödeme sırasında **fiyat ve stok doğrulaması** yapar |
+| **Gelen** | Order Service | Sepete ürün eklerken ve checkout sırasında **fiyat, stok ve restoran durumu doğrulaması** yapar |
 
-Order Service, sipariş oluşturulmadan önce sepetteki ürünlerin **hâlâ mevcut** olduğunu ve **fiyatların doğru** olduğunu bu servis üzerinden doğrular.
+Order Service, sepete ürün eklenmeden önce ve sipariş oluşturulmadan önce aşağıdaki doğrulamaları bu servis üzerinden yapar:
 
-```protobuf
-// Planlanan gRPC sözleşmesi
-service RestaurantGrpc {
-  rpc ValidateBasketItems (ValidateBasketRequest) returns (ValidateBasketResponse);
-  rpc GetProductDetails   (ProductIdList)         returns (ProductDetailsList);
-}
+- **Restoran durumu** — Restoran aktif mi ve `Open` durumda mı?
+- **Ürün varlığı** — Ürün ilgili restoranın menüsünde var mı?
+- **Stok durumu** — Ürün şu an stokta mı (`isAvailable`)?
+- **Fiyat bilgisi** — Güncel fiyat bilgisini döner, Order Service bu değeri kullanır.
+
+```
+POST /internal/restaurants/{restaurantId}/validate-items   → Sepet doğrulaması
+GET  /internal/restaurants/{restaurantId}/is-open           → Restoran açık mı?
 ```
 
 ### 3. Event-Driven — Restaurant Service → Message Broker (Asenkron)
@@ -356,11 +469,12 @@ Aşağıdaki eventleri diğer servislerden **dinler**:
 
 | Servis | Ne Bekliyorlar | Protokol | Amaç |
 |---|---|---|---|
-| **Order Service** | Ürün fiyat & stok doğrulaması | gRPC (sync) | Sipariş oluşturmadan önce sepet validasyonu |
+| **Order Service** | Ürün fiyat, stok & restoran durumu doğrulaması | REST Internal (sync) | Sepete ekleme ve sipariş oluşturmadan önce validasyon (`/internal/validate-items`) |
+| **Order Service** | Restoran açık mı kontrolü | REST Internal (sync) | Checkout sırasında restoran durumu sorgusu (`/internal/is-open`) |
 | **Order Service** | `RestaurantStatusChanged`, `ProductStockChanged` eventleri | Async (Pub/Sub) | Kapalı restorana sipariş engelleme, stoksuz ürün kontrolü |
 | **Mobil Uygulama** | Restoran listesi, menü verisi, durum güncellemeleri | REST + Event | Müşteri arayüzünün güncel tutulması |
 | **Frontend** | Restoran CRUD, menü yönetimi, anlık durum | REST + Event | Admin paneli & müşteri web arayüzü |
-| **Order Service** | Minimum sipariş tutarı, teslimat ücreti bilgisi | gRPC (veya REST) | (Order Service tarafından) Sepet alt limitinin doğrulanması ve nihai tutarın hesaplanması |
+| **Order Service** | Minimum sipariş tutarı, teslimat ücreti bilgisi | REST Internal | (Order Service tarafından) Sepet alt limitinin doğrulanması ve nihai tutarın hesaplanması |
 | **API Gateway** | Servis sağlık kontrolü, endpoint kaydı | REST | Routing tablosunun oluşturulması |
 
 ---
@@ -415,7 +529,8 @@ restaurant-service/
 └── RestaurantService.API/
     ├── Controllers/
     │   ├── RestaurantsController.cs    # Restoran CRUD + Arama
-    │   └── MenuController.cs          # Menü, Kategori & Ürün yönetimi
+    │   ├── MenuController.cs          # Menü, Kategori & Ürün yönetimi
+    │   └── InternalController.cs      # Servisler arası doğrulama (validate-items, is-open)
     ├── DTOs/
     │   └── Dtos.cs                    # İstek / Yanıt modelleri
     ├── Entities/

@@ -50,12 +50,20 @@ public class InternalController : ControllerBase
                 ErrorMessage = $"Restoran bulunamadı: {restaurantId}"
             });
 
+        if (!restaurant.IsActive || restaurant.Status != RestaurantStatus.Open)
+            return Ok(new MenuValidationResponse
+            {
+                Valid = false,
+                ErrorMessage = $"Restoran siparise kapali: {restaurantId}"
+            });
+
         // Tüm ürünleri düz bir sözlüğe al (hızlı lookup için)
         var allProducts = restaurant.MenuCategories
             .SelectMany(mc => mc.Products)
             .ToDictionary(p => p.Id);
 
         var validatedItems = new List<ValidatedItemResponse>();
+        var hasUnavailableItems = false;
 
         foreach (var item in items)
         {
@@ -76,12 +84,18 @@ public class InternalController : ControllerBase
                 Price = product.Price,
                 Available = product.IsAvailable
             });
+
+            if (!product.IsAvailable)
+            {
+                hasUnavailableItems = true;
+            }
         }
 
         return Ok(new MenuValidationResponse
         {
-            Valid = true,
-            Items = validatedItems
+            Valid = !hasUnavailableItems,
+            Items = validatedItems,
+            ErrorMessage = hasUnavailableItems ? "Bir veya daha fazla urun su anda stokta degil." : null
         });
     }
 

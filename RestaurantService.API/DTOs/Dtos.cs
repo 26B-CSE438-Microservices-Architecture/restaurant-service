@@ -208,3 +208,26 @@ public class MenuDto
     public string RestaurantName { get; set; } = string.Empty;
     public List<CategoryDto> Categories { get; set; } = new();
 }
+
+// ── Internal Validation DTOs (Order Service tarafından kullanılır) ──
+
+public class ValidateItemsRequest
+{
+    public Guid MenuItemId { get; set; }
+    public int Quantity { get; set; }
+}
+
+public class ValidatedItemResponse
+{
+    public Guid MenuItemId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public bool Available { get; set; }
+}
+
+public class MenuValidationResponse
+{
+    public bool Valid { get; set; }
+    public List<ValidatedItemResponse> Items { get; set; } = new();
+    public string? ErrorMessage { get; set; }
+}

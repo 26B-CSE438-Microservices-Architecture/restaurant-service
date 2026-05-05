@@ -12,6 +12,7 @@ public interface IMenuService
     Task<bool> DeleteCategoryAsync(Guid categoryId);
 
     // Products
+    Task<ProductDto?> GetProductByIdAsync(Guid productId);
     Task<ProductDto> CreateProductAsync(Guid categoryId, CreateProductDto dto);
     Task<ProductDto?> UpdateProductAsync(Guid productId, UpdateProductDto dto);
     Task<ProductDto?> ToggleProductStockAsync(Guid productId, UpdateStockDto dto);

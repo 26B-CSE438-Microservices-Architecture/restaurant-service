@@ -131,6 +131,13 @@ public class MenuServiceImpl : IMenuService
 
     // ── Product Operations ──
 
+    public async Task<ProductDto?> GetProductByIdAsync(Guid productId)
+    {
+        var product = await _db.Products.FindAsync(productId);
+        if (product == null) return null;
+        return MapToProductDto(product);
+    }
+
     public async Task<ProductDto> CreateProductAsync(Guid categoryId, CreateProductDto dto)
     {
         var category = await _db.MenuCategories.FindAsync(categoryId);

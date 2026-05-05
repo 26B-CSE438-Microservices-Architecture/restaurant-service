@@ -72,6 +72,17 @@ public class MenuController : ControllerBase
     /// <summary>
     /// Add a new product to a category
     /// </summary>
+    /// <summary>
+    /// Get a single product by id
+    /// </summary>
+    [HttpGet("products/{id}")]
+    public async Task<ActionResult<ProductDto>> GetProductById(Guid id)
+    {
+        var product = await _menuService.GetProductByIdAsync(id);
+        if (product == null) return NotFound();
+        return Ok(product);
+    }
+
     [HttpPost("categories/{categoryId}/products")]
     public async Task<ActionResult<ProductDto>> CreateProduct(Guid categoryId, [FromBody] CreateProductDto dto)
     {

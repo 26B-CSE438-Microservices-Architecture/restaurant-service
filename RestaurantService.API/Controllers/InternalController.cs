@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RestaurantService.API.Data;
 using RestaurantService.API.DTOs;
+using RestaurantService.API.Entities;
 
 namespace RestaurantService.API.Controllers;
 
@@ -82,5 +83,24 @@ public class InternalController : ControllerBase
             Valid = true,
             Items = validatedItems
         });
+    }
+
+    /// <summary>
+    /// Order Service'in checkout sırasında çağırdığı endpoint.
+    /// Restoranın şu an açık (sipariş kabul ediyor) olup olmadığını döner.
+    /// </summary>
+    /// <remarks>
+    /// GET /internal/restaurants/{restaurantId}/is-open
+    /// Restoran yoksa veya aktif değilse false döner.
+    /// </remarks>
+    [HttpGet("restaurants/{restaurantId}/is-open")]
+    public async Task<ActionResult<bool>> IsRestaurantOpen(Guid restaurantId)
+    {
+        var restaurant = await _db.Restaurants.FindAsync(restaurantId);
+        if (restaurant == null) return Ok(false);
+
+        if (!restaurant.IsActive) return Ok(false);
+
+        return Ok(restaurant.Status == RestaurantStatus.Open);
     }
 }

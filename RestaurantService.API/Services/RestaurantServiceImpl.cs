@@ -66,6 +66,12 @@ public class RestaurantServiceImpl : IRestaurantService
         return restaurant == null ? null : MapToDto(restaurant);
     }
 
+    public async Task<RestaurantDto?> GetByOwnerIdAsync(string ownerId)
+    {
+        var restaurant = await _db.Restaurants.FirstOrDefaultAsync(r => r.OwnerId == ownerId);
+        return restaurant == null ? null : MapToDto(restaurant);
+    }
+
     public async Task<FavoriteRestaurantInfoDto?> GetFavoriteInfoAsync(Guid id)
     {
         var restaurant = await _db.Restaurants.FindAsync(id);
@@ -123,6 +129,7 @@ public class RestaurantServiceImpl : IRestaurantService
         var restaurant = new Restaurant
         {
             Name = dto.Name,
+            OwnerId = dto.OwnerId,
             Description = dto.Description,
             CuisineType = dto.CuisineType,
             AddressText = dto.AddressText,
@@ -243,6 +250,7 @@ public class RestaurantServiceImpl : IRestaurantService
     {
         Id = r.Id,
         Name = r.Name,
+        OwnerId = r.OwnerId,
         Description = r.Description,
         CuisineType = r.CuisineType,
         AddressText = r.AddressText,

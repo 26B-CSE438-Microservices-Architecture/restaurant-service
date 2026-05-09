@@ -10,6 +10,9 @@ public class CreateRestaurantDto
     [MaxLength(200)]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(200)]
+    public string OwnerId { get; set; } = string.Empty;
+
     [MaxLength(500)]
     public string Description { get; set; } = string.Empty;
 
@@ -70,6 +73,7 @@ public class RestaurantDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string OwnerId { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string CuisineType { get; set; } = string.Empty;
     public string AddressText { get; set; } = string.Empty;

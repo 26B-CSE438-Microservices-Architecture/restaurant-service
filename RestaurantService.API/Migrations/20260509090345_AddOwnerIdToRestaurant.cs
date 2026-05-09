@@ -5,34 +5,25 @@
 namespace RestaurantService.API.Migrations
 {
     /// <inheritdoc />
-    public partial class AddCuisineTypeToRestaurant : Migration
+    public partial class AddOwnerIdToRestaurant : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "CuisineType",
+                name: "OwnerId",
                 table: "Restaurants",
-                type: "character varying(100)",
-                maxLength: 100,
+                type: "character varying(200)",
+                maxLength: 200,
                 nullable: false,
                 defaultValue: "");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Restaurants_CuisineType",
-                table: "Restaurants",
-                column: "CuisineType");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_Restaurants_CuisineType",
-                table: "Restaurants");
-
             migrationBuilder.DropColumn(
-                name: "CuisineType",
+                name: "OwnerId",
                 table: "Restaurants");
         }
     }

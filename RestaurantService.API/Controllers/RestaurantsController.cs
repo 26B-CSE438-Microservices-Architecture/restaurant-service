@@ -41,6 +41,17 @@ public class RestaurantsController : ControllerBase
     }
 
     /// <summary>
+    /// Get restaurant by Gateway owner user ID
+    /// </summary>
+    [HttpGet("owner/{ownerId}")]
+    public async Task<ActionResult<RestaurantDto>> GetByOwnerId(string ownerId)
+    {
+        var restaurant = await _restaurantService.GetByOwnerIdAsync(ownerId);
+        if (restaurant == null) return NotFound();
+        return Ok(restaurant);
+    }
+
+    /// <summary>
     /// Get minimal restaurant info for the user-service "Favorite Restaurants" screen.
     /// Returns only: name, type, opening hours, location and open/closed status.
     /// </summary>

@@ -68,8 +68,9 @@ public class RestaurantServiceImpl : IRestaurantService
 
     public async Task<RestaurantDto?> GetByOwnerIdAsync(string ownerId)
     {
+        var searchId = ownerId?.ToLower() ?? string.Empty;
         var restaurant = await _db.Restaurants
-            .Where(r => r.OwnerId == ownerId)
+            .Where(r => r.OwnerId.ToLower() == searchId)
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync();
         return restaurant == null ? null : MapToDto(restaurant);

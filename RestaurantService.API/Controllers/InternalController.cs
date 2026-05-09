@@ -121,8 +121,9 @@ public class InternalController : ControllerBase
     [HttpGet("restaurants/by-owner/{ownerId}")]
     public async Task<IActionResult> GetRestaurantByOwnerId(string ownerId)
     {
+        var searchId = ownerId?.ToLower() ?? string.Empty;
         var restaurant = await _db.Restaurants
-            .Where(r => r.OwnerId == ownerId)
+            .Where(r => r.OwnerId.ToLower() == searchId)
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync();
         if (restaurant == null) return NotFound();

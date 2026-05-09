@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     public DbSet<Restaurant> Restaurants => Set<Restaurant>();
     public DbSet<MenuCategory> MenuCategories => Set<MenuCategory>();
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<StockReservation> StockReservations => Set<StockReservation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,9 +73,29 @@ public class AppDbContext : DbContext
             entity.Property(p => p.Description).HasMaxLength(500);
             entity.Property(p => p.ImageUrl).HasMaxLength(500);
             entity.Property(p => p.Price).HasPrecision(10, 2);
+            entity.Property(p => p.StockQuantity).HasDefaultValue(100);
 
             entity.HasIndex(p => p.CategoryId);
             entity.HasIndex(p => p.IsAvailable);
+        });
+
+        // ── StockReservation (Saga / Compensating Transaction) ──
+        modelBuilder.Entity<StockReservation>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+
+            entity.Property(r => r.Status)
+                  .HasConversion<string>()
+                  .HasMaxLength(20);
+
+            entity.HasIndex(r => r.OrderId);
+            entity.HasIndex(r => new { r.OrderId, r.Status });
+            entity.HasIndex(r => r.ProductId);
+
+            entity.HasOne(r => r.Product)
+                  .WithMany()
+                  .HasForeignKey(r => r.ProductId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

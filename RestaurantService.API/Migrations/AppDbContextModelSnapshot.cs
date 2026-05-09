@@ -80,6 +80,11 @@ namespace RestaurantService.API.Migrations
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
 
+                    b.Property<int>("StockQuantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(100);
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
@@ -173,6 +178,46 @@ namespace RestaurantService.API.Migrations
                     b.ToTable("Restaurants");
                 });
 
+            modelBuilder.Entity("RestaurantService.API.Entities.StockReservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("OrderId", "Status");
+
+                    b.ToTable("StockReservations");
+                });
+
             modelBuilder.Entity("RestaurantService.API.Entities.MenuCategory", b =>
                 {
                     b.HasOne("RestaurantService.API.Entities.Restaurant", "Restaurant")
@@ -193,6 +238,17 @@ namespace RestaurantService.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("RestaurantService.API.Entities.StockReservation", b =>
+                {
+                    b.HasOne("RestaurantService.API.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("RestaurantService.API.Entities.MenuCategory", b =>

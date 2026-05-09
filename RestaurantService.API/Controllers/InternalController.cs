@@ -117,4 +117,12 @@ public class InternalController : ControllerBase
 
         return Ok(restaurant.Status == RestaurantStatus.Open);
     }
+
+    [HttpGet("restaurants/by-owner/{ownerId}")]
+    public async Task<ActionResult<Restaurant>> GetRestaurantByOwnerId(string ownerId)
+    {
+        var restaurant = await _db.Restaurants.FirstOrDefaultAsync(r => r.OwnerId == ownerId);
+        if (restaurant == null) return NotFound();
+        return Ok(restaurant);
+    }
 }
